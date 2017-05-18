@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gocraft/dbr"
@@ -109,9 +110,12 @@ func createFollow(c echo.Context) error {
 
 func oAuth2() echo.MiddlewareFunc {
 	return middleware.KeyAuth(func(key string, c echo.Context) (error, bool) {
-		pp.Println("key")
-		pp.Println(key)
-		return nil, key == "1:ok"
+		var params = strings.SplitN(key, ":", 2)
+		var id = params[0]
+		var token = params[1]
+		var u User
+		sess.Select("token").From(usersTable).Where("id = ?", id).Load(&u)
+		return nil, token == u.Token
 	})
 }
 
