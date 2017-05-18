@@ -26,8 +26,9 @@ type (
 
 	// AccessPoint : Wifi AccessPoint profiles
 	AccessPoint struct {
-		Ssid  string
-		Bssid string
+		ID    int64  `json:"id" form:"id" query:"id"`
+		Ssid  string `json:"ssid" form:"ssid" query:"ssid"`
+		Bssid string `json:"bssid" form:"bssid" query:"bssid"`
 	}
 
 	// Follow : User and AccessPoint follow relation
@@ -86,7 +87,7 @@ func createUser(c echo.Context) error {
 		Values(u.Name, u.Pass, token).Exec()
 
 	if err != nil {
-		pp.Print(err)
+		pp.Println(err)
 		res := map[string]string{"message": err.Error()}
 		return c.JSON(http.StatusConflict, res)
 	}
@@ -96,16 +97,35 @@ func createUser(c echo.Context) error {
 	return c.JSON(http.StatusCreated, u)
 }
 
-func authedUser(c echo.Context) (*User, error) {
-	return nil, nil
-}
-
 func createFollow(c echo.Context) error {
-	u := new(User)
-	if err := c.Bind(u); err != nil {
+	u := c.Get("authorizedUser").(User)
+	ap, err := findOrCreateAccessPoint(c)
+	if err != nil {
+		pp.Println(err)
 		return err
 	}
+	pp.Println(u)
+	pp.Println(ap)
 	return c.JSON(http.StatusCreated, "OK")
+}
+
+func findOrCreateAccessPoint(c echo.Context) (*AccessPoint, error) {
+	ap := new(AccessPoint)
+	if err := c.Bind(ap); err != nil {
+		return ap, err
+	}
+	pp.Println(ap)
+	// TODO: primary only bssd
+	sess.Select("*").From(accessPointsTable).Where("ssid = ? AND bssid = ?", ap.Ssid, ap.Bssid).Load(&ap)
+	if ap.ID == 0 {
+		result, _ := sess.
+			InsertInto(accessPointsTable).
+			Columns("ssid", "bssid").
+			Values(ap.Ssid, ap.Bssid).Exec()
+		res, _ := result.LastInsertId()
+		ap.ID = res
+	}
+	return ap, nil
 }
 
 func oAuth2() echo.MiddlewareFunc {
@@ -114,7 +134,8 @@ func oAuth2() echo.MiddlewareFunc {
 		var id = params[0]
 		var token = params[1]
 		var u User
-		sess.Select("token").From(usersTable).Where("id = ?", id).Load(&u)
+		sess.Select("*").From(usersTable).Where("id = ?", id).Load(&u)
+		c.Set("authorizedUser", u)
 		return nil, token == u.Token
 	})
 }
