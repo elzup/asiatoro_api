@@ -15,7 +15,7 @@ import (
 type (
 	// User : Who are you
 	User struct {
-		Id    string `json:"id" form:"id" query:"id"`
+		ID    int    `json:"id" form:"id" query:"id"`
 		Name  string `json:"name" form:"name" query:"name"`
 		Pass  string `json:"pass" form:"pass" query:"pass"`
 		Token string `json:"token" form:"token" query:"token"`
@@ -56,11 +56,22 @@ func randToken() string {
 	return fmt.Sprintf("%x", b)
 }
 
+func existsUser(u User) bool {
+	var r int64
+	sess.Select("count(*)").From(usersTable).Where("name = ?", u.Name).Load(&r)
+	return r > 0
+}
+
 func createUser(c echo.Context) error {
 	u := new(User)
 	if err := c.Bind(u); err != nil {
 		return err
 	}
+	if !existsUser(u) {
+		res := map[string]string{"message": "Duplicate user name."}
+		return c.JSON(http.StatusBadRequest, res)
+	}
+
 	token := randToken()
 	result, err := sess.
 		InsertInto(usersTable).
@@ -70,8 +81,8 @@ func createUser(c echo.Context) error {
 		fmt.Println(err)
 	}
 	fmt.Println(result)
-	response := map[string]string{"token": token}
-	return c.JSON(http.StatusCreated, response)
+	res := map[string]string{"token": token}
+	return c.JSON(http.StatusCreated, res)
 }
 
 func selectLogs(c echo.Context) error {
