@@ -8,9 +8,7 @@ CREATE TABLE users (
 CREATE TABLE access_points (
     id MEDIUMINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     ssid VARCHAR(80) NOT NULL,
-    bssid VARCHAR(80) NOT NULL,
-    user_id MEDIUMINT NOT NULL,
-    FOREIGN KEY(user_id) REFERENCES users(id)
+    bssid VARCHAR(80) NOT NULL
 ) default character set 'utf8' ENGINE=InnoDB;
 
 CREATE TABLE checkins (
