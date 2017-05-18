@@ -8,6 +8,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gocraft/dbr"
+
 	"github.com/k0kubun/pp"
 	"github.com/labstack/echo"
 )
@@ -15,7 +16,7 @@ import (
 type (
 	// User : Who are you
 	User struct {
-		ID    int    `json:"id" form:"id" query:"id"`
+		ID    int64  `json:"id" form:"id" query:"id"`
 		Name  string `json:"name" form:"name" query:"name"`
 		Pass  string `json:"pass" form:"pass" query:"pass"`
 		Token string `json:"token" form:"token" query:"token"`
@@ -77,15 +78,18 @@ func createUser(c echo.Context) error {
 	}
 
 	token := randToken()
-	_, err := sess.
+	result, err := sess.
 		InsertInto(usersTable).
 		Columns("name", "pass", "token").
 		Values(u.Name, u.Pass, token).Exec()
+
 	if err != nil {
 		pp.Print(err)
 		res := map[string]string{"message": err.Error()}
 		return c.JSON(http.StatusConflict, res)
 	}
+	res, err := result.LastInsertId()
+	u.ID = res
 	u.Token = token
 	return c.JSON(http.StatusCreated, u)
 }
