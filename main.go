@@ -49,6 +49,7 @@ var (
 	usersTable        = "users"
 	checkinsTable     = "logs"
 	accessPointsTable = "access_points"
+	followsTable      = "follows"
 	seq               = 1
 	conn, _           = dbr.Open("mysql", os.Getenv("MYSQL_URL"), nil)
 	sess              = conn.NewSession(nil)
@@ -64,6 +65,15 @@ func existsUser(u *User) bool {
 	var r int64
 	sess.Select("count(*)").From(usersTable).Where("name = ?", u.Name).Load(&r)
 	return r > 0
+}
+
+func selectFollow(u User, ap AccessPoint) Follow {
+	var follow Follow
+	sess.Select("*").
+		From(followsTable).
+		Where("user_id = ? AND access_point_id = ?", u.ID, ap.ID).
+		Load(&follow)
+	return follow
 }
 
 func createUser(c echo.Context) error {
@@ -104,19 +114,30 @@ func createFollow(c echo.Context) error {
 		pp.Println(err)
 		return err
 	}
-	pp.Println(u)
-	pp.Println(ap)
-	return c.JSON(http.StatusCreated, "OK")
+	follow := selectFollow(u, ap)
+	if follow.User.ID == 0 {
+		follow.User = u
+		follow.AccessPoint = ap
+		sess.
+			InsertInto(followsTable).
+			Columns("user_id", "access_point_id").
+			Values(u.ID, ap.ID).Exec()
+	}
+	return c.JSON(http.StatusCreated, follow)
 }
 
-func findOrCreateAccessPoint(c echo.Context) (*AccessPoint, error) {
+func findOrCreateAccessPoint(c echo.Context) (AccessPoint, error) {
 	ap := new(AccessPoint)
 	if err := c.Bind(ap); err != nil {
-		return ap, err
+		return *ap, err
 	}
-	pp.Println(ap)
 	// TODO: primary only bssd
-	sess.Select("*").From(accessPointsTable).Where("ssid = ? AND bssid = ?", ap.Ssid, ap.Bssid).Load(&ap)
+	sess.
+		Select("*").
+		From(accessPointsTable).
+		Where("ssid = ? AND bssid = ?", ap.Ssid, ap.Bssid).
+		LoadStruct(&ap)
+	pp.Println(ap)
 	if ap.ID == 0 {
 		result, _ := sess.
 			InsertInto(accessPointsTable).
@@ -125,7 +146,7 @@ func findOrCreateAccessPoint(c echo.Context) (*AccessPoint, error) {
 		res, _ := result.LastInsertId()
 		ap.ID = res
 	}
-	return ap, nil
+	return *ap, nil
 }
 
 func oAuth2() echo.MiddlewareFunc {
