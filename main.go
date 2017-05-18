@@ -8,21 +8,17 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gocraft/dbr"
+	// "github.com/k0kubun/pp"
 	"github.com/labstack/echo"
 )
 
 type (
 	// User : Who are you
 	User struct {
-		Name  string
-		Pass  string
-		Token string
-	}
-
-	// UserPost : User request format
-	UserPost struct {
-		Name string `json:"name"`
-		Pass string `json:"pass"`
+		Id    string `json:"id" form:"id" query:"id"`
+		Name  string `json:"name" form:"name" query:"name"`
+		Pass  string `json:"pass" form:"pass" query:"pass"`
+		Token string `json:"token" form:"token" query:"token"`
 	}
 
 	// AccessPoint : Wifi AccessPoint profiles
@@ -61,14 +57,11 @@ func randToken() string {
 }
 
 func createUser(c echo.Context) error {
-	u := new(UserPost)
+	u := new(User)
 	if err := c.Bind(u); err != nil {
 		return err
 	}
 	token := randToken()
-	fmt.Println(u)
-	fmt.Println(u.Name)
-	fmt.Println(u.Pass)
 	result, err := sess.
 		InsertInto(usersTable).
 		Columns("name", "pass", "token").
@@ -82,7 +75,7 @@ func createUser(c echo.Context) error {
 }
 
 func selectLogs(c echo.Context) error {
-	u := new(UserPost)
+	u := new(User)
 	if err := c.Bind(u); err != nil {
 		return err
 	}
