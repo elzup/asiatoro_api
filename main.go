@@ -11,6 +11,7 @@ import (
 
 	"github.com/k0kubun/pp"
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 )
 
 type (
@@ -94,20 +95,31 @@ func createUser(c echo.Context) error {
 	return c.JSON(http.StatusCreated, u)
 }
 
-func selectLogs(c echo.Context) error {
+func authedUser(c echo.Context) (*User, error) {
+	return nil, nil
+}
+
+func createFollow(c echo.Context) error {
 	u := new(User)
 	if err := c.Bind(u); err != nil {
 		return err
 	}
-	token := randToken()
-	sess.InsertInto(usersTable).Columns("name", "pass", "token").Values(u.Name, u.Pass, token).Exec()
-	return c.JSON(http.StatusCreated, token)
+	return c.JSON(http.StatusCreated, "OK")
+}
+
+func oAuth2() echo.MiddlewareFunc {
+	return middleware.KeyAuth(func(key string, c echo.Context) (error, bool) {
+		pp.Println("key")
+		pp.Println(key)
+		return nil, key == "1:ok"
+	})
 }
 
 func main() {
 	e := echo.New()
 
 	e.POST("/users", createUser)
+	e.POST("/follows", createFollow, oAuth2())
 
 	e.Logger.Fatal(e.Start(":1323"))
 }
