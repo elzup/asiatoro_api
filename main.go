@@ -8,7 +8,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gocraft/dbr"
-	// "github.com/k0kubun/pp"
+	"github.com/k0kubun/pp"
 	"github.com/labstack/echo"
 )
 
@@ -56,7 +56,7 @@ func randToken() string {
 	return fmt.Sprintf("%x", b)
 }
 
-func existsUser(u User) bool {
+func existsUser(u *User) bool {
 	var r int64
 	sess.Select("count(*)").From(usersTable).Where("name = ?", u.Name).Load(&r)
 	return r > 0
@@ -67,22 +67,27 @@ func createUser(c echo.Context) error {
 	if err := c.Bind(u); err != nil {
 		return err
 	}
-	if !existsUser(u) {
+	if u.Name == "" || u.Pass == "" {
+		res := map[string]string{"message": "Name or Pass Field empty."}
+		return c.JSON(http.StatusBadRequest, res)
+	}
+	if existsUser(u) {
 		res := map[string]string{"message": "Duplicate user name."}
 		return c.JSON(http.StatusBadRequest, res)
 	}
 
 	token := randToken()
-	result, err := sess.
+	_, err := sess.
 		InsertInto(usersTable).
 		Columns("name", "pass", "token").
 		Values(u.Name, u.Pass, token).Exec()
 	if err != nil {
-		fmt.Println(err)
+		pp.Print(err)
+		res := map[string]string{"message": err.Error()}
+		return c.JSON(http.StatusConflict, res)
 	}
-	fmt.Println(result)
-	res := map[string]string{"token": token}
-	return c.JSON(http.StatusCreated, res)
+	u.Token = token
+	return c.JSON(http.StatusCreated, u)
 }
 
 func selectLogs(c echo.Context) error {
